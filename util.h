@@ -137,6 +137,14 @@ namespace util
 
 	std::vector<std::string> recursive_ls(const std::string &base, const std::string &test = "");
 
+	std::string normalize(const std::string &path);
+
+	std::string resolve(const std::string &base, const std::string &path);
+
+	std::string linktarget(const std::string &path);
+
+	std::string relreduce(std::string base, std::string target);
+
 
 	// Internet
 

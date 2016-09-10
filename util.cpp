@@ -14,7 +14,7 @@ namespace util
 		{
 			if (*iter == delim)
 			{
-				if (! cur.size()) continue;
+				//if (! cur.size()) continue;
 				ret.push_back(cur);
 				cur.clear();
 			}
@@ -26,6 +26,7 @@ namespace util
 
 	std::string strjoin(const std::vector<std::string> &list, char delim, unsigned int start, unsigned int end)
 	{
+		if (! list.size()) return "";
 		std::string ret{};
 		int totsize = list.size() - 1;
 		for (const std::string &item : list) totsize += item.size();
@@ -234,6 +235,63 @@ namespace util
 		closedir(dir);
 		return ret;
 	}*/
+
+	std::string normalize(const std::string &path)
+	{
+		if (! path.size()) return ".";
+		std::vector<std::string> patharr = strsplit(path, pathsep);
+		std::vector<std::string> ret{};
+		if (patharr[0] == "") ret.push_back("");
+		for (const std::string &elem : patharr)
+		{
+			if (elem == "" || elem == ".") continue;
+			else if (elem == "..")
+			{
+				if (! ret.size() || ret.back() == "..") ret.push_back("..");
+				else if (ret.size() == 1 && ret[0] == "") continue;
+				else ret.pop_back();
+			}
+			else ret.push_back(elem);
+		}
+		if (! ret.size()) return ".";
+		if (ret.size() == 1 && ret[0] == "") return "/";
+		return strjoin(ret, pathsep);
+	}
+
+	std::string resolve(const std::string &base, const std::string &path)
+	{
+		if (path.size() && path[0] == pathsep) return normalize(path);
+		return normalize(base + pathsep + path);
+	}
+
+	std::string linktarget(const std::string &path) // TODO Not handling errors
+	{
+		struct stat s;
+		if (lstat(path.c_str(), &s) != 0) return path;
+		if ((s.st_mode & S_IFMT) != S_IFLNK) return path;
+		std::string dir{dirname(path.c_str())};
+		std::string ret{};
+		ret.resize(s.st_size + 1);
+		readlink(path.c_str(), &ret[0], ret.size());
+		return resolve(dir, ret);
+	}
+
+	std::string relreduce(std::string base, std::string target)
+	{
+		base = normalize(base);
+		target = normalize(target);
+		if (base == ".") return target;
+		if (base[0] == pathsep && target[0] != pathsep) return target;
+		if (base[0] != pathsep && target[0] == pathsep) return target;
+		std::vector<std::string> basearr = strsplit(base, pathsep);
+		std::vector<std::string> targetarr = strsplit(target, pathsep);
+		std::vector<std::string> ret{};
+		std::vector<std::string>::size_type i, j;
+		for (i = 0; i < basearr.size() && i < targetarr.size() && basearr[i] == targetarr[i]; i++);
+		for (j = i; j < basearr.size(); j++) ret.push_back("..");
+		for (j = i; j < targetarr.size(); j++) if (targetarr[j] != ".") ret.push_back(targetarr[j]);
+		return strjoin(ret, pathsep);
+	}
 
 	int fast_atoi(const char *s)
 	{
