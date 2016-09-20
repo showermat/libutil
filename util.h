@@ -17,8 +17,8 @@
 #include <codecvt>
 #include <string.h>
 #include <glob.h>
-#include <ftw.h>
 #include <errno.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <magic.h>
@@ -119,7 +119,7 @@ namespace util
 
 	std::string basename(std::string path, char sep = '/');
 
-	std::string dirname(std::string path, char sep = '/');
+	std::string dirname(std::string path);
 
 	void rm(const std::string &path);
 
@@ -133,17 +133,21 @@ namespace util
 
 	bool isdir(const std::string &path);
 
+	void fswalk(const std::string &path, const std::function<bool(const std::string &, const struct stat *, void *)> &fn, void *userd, bool follow = false);
+
 	std::unordered_set<std::string> ls(const std::string &dir, const std::string &test = "");
 
-	std::vector<std::string> recursive_ls(const std::string &base, const std::string &test = "");
+	std::unordered_set<std::string> recursive_ls(const std::string &base, const std::string &test = "");
 
 	std::string normalize(const std::string &path);
 
 	std::string resolve(const std::string &base, const std::string &path);
 
-	std::string linktarget(const std::string &path);
+	std::string linktarget(std::string path);
 
 	std::string relreduce(std::string base, std::string target);
+
+	bool is_under(std::string parent, std::string child);
 
 
 	// Internet

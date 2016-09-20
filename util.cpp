@@ -102,16 +102,15 @@ namespace util
 		return false;
 	}
 
-	std::string basename(std::string path, char sep)
+	std::string basename(std::string path, char sep) // TODO Rewrite
 	{
 		while (path.back() == sep) path = path.substr(0, path.size() - 1);
 		return path.substr(path.rfind(sep) + 1);
 	}
 
-	std::string dirname(std::string path, char sep)
+	std::string dirname(std::string path)
 	{
-		while (path.back() == sep) path = path.substr(0, path.size() - 1);
-		return path.substr(0, path.rfind(sep));
+		return normalize(path + "/..");
 	}
 
 	void rm(const std::string &path)
@@ -119,18 +118,15 @@ namespace util
 		if (unlink(path.c_str())) throw std::runtime_error{"Could not remove " + path + ": " + std::string{strerror(errno)}};
 	}
 
-	int ftw_pred_rm(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+	bool rm_pred(const std::string &path, const struct stat *st, void *arg) // FIXME Need to add DEPTH option to fswalk
 	{
-		if (typeflag == FTW_F || typeflag == FTW_SL || typeflag == FTW_SLN) return unlink(fpath) ? errno : 0;
-		if (typeflag == FTW_DP) return rmdir(fpath) ? errno : 0;
-		if (typeflag == FTW_DNR || typeflag == FTW_NS) return EACCES;
-		return ENOSYS;
+		rm(path);
+		return true;
 	}
 
 	void rm_recursive(const std::string &path)
 	{
-		int ret = nftw(path.c_str(), &ftw_pred_rm, ftw_nopenfd, FTW_MOUNT | FTW_PHYS | FTW_DEPTH);
-		if (ret) throw std::runtime_error{std::string{strerror(ret)}};
+		fswalk(path, rm_pred, nullptr);
 	}
 	
 	std::string exepath()
@@ -188,53 +184,41 @@ namespace util
 		return ret;
 	}
 
-	static std::vector<std::string> files{};
-	static const std::regex *ftwtest;
-
-	int ftw_pred_ls(const char *path, const struct stat *info, int type)
+	void fswalk(const std::string &path, const std::function<bool(const std::string &, const struct stat *, void *)> &fn, void *userd, bool follow)
 	{
-		if (type == FTW_F && (! ftwtest || std::regex_search(path, *ftwtest))) files.push_back(path);
-		return 0;
-	}
-
-	std::vector<std::string> recursive_ls(const std::string &base, const std::string &test) // NOT THREADSAFE
-	{
-		files.clear();
-		std::regex ftwtest_base{};
-		if (test == "") ftwtest = nullptr;
-		else { ftwtest_base = std::regex{test}; ftwtest = &ftwtest_base; }
-		glob_t globbuf;
-		if (glob(base.c_str(), GLOB_NOSORT | GLOB_BRACE | GLOB_NOCHECK, nullptr, &globbuf)) throw std::runtime_error{"Glob failed on pattern " + base};
-		for (unsigned int i = 0; i < globbuf.gl_pathc; i++) ftw(globbuf.gl_pathv[i], &ftw_pred_ls, ftw_nopenfd);
-		globfree(&globbuf);
-		return files;
-	}
-
-	/*std::vector<std::string> recursive_ls(const std::string &path, const std::string &ext)
-	{
-		std::vector<std::string> ret{};
-		DIR *dir = opendir(path.c_str());
-		if (! dir) throw std::runtime_error{"Could not open " + path + ": " + strerror(errno)};
-		struct dirent *ent;
-		while (ent = readdir(dir))
+		int statret;
+		struct stat sb;
+		if (follow) statret = stat(path.c_str(), &sb);
+		else statret = lstat(path.c_str(), &sb);
+		if (statret) return; //throw std::runtime_error{"Couldn't stat " + path + ": " + std::string{strerror(errno)}}; // TODO Error handling?
+		if (! fn(path, &sb, userd)) return;
+		if (! follow && (sb.st_mode & S_IFMT) == S_IFLNK && stat(path.c_str(), &sb)) return; // Re-process links as their destinations
+		if ((sb.st_mode & S_IFMT) == S_IFDIR)
 		{
-			std::string name{ent->d_name};
-			int type = ent->d_type;
-			std::string newpath{path + "/" + name};
-			if (type == DT_REG)
+			DIR *d = opendir(path.c_str());
+			if (!d ) return; // TODO
+			struct dirent *child;
+			while ((child = readdir(d)))
 			{
-				const std::vector<std::string> &tok = util::strsplit(name, '.');
-				if (ext != "" && tok[tok.size() - 1] == ext) ret.push_back(newpath);
+				std::string childname{child->d_name};
+				if (childname != "." && childname != "..") fswalk(path + pathsep + childname, fn, userd, follow);
 			}
-			else if (type == DT_DIR)
-			{
-				const std::vector<std::string> &rec = recursive_ls(newpath, ext);
-				ret.insert(ret.end(), rec.begin(), rec.end());
-			}
+			closedir(d);
 		}
-		closedir(dir);
+	}
+
+	bool ls_pred(const std::string &path, const struct stat *st, void *arg)
+	{
+		((std::unordered_set<std::string> *) arg)->insert(path);
+		return true;
+	}
+
+	std::unordered_set<std::string> recursive_ls(const std::string &base, const std::string &test) // TODO test not currently being considered
+	{
+		std::unordered_set<std::string> ret{};
+		fswalk(base, ls_pred, (void *) &ret, true);
 		return ret;
-	}*/
+	}
 
 	std::string normalize(const std::string &path)
 	{
@@ -264,8 +248,11 @@ namespace util
 		return normalize(base + pathsep + path);
 	}
 
-	std::string linktarget(const std::string &path) // TODO Not handling errors
+	std::string linktarget(std::string path) // TODO Not handling errors
 	{
+		char *rpath = realpath(dirname(path).c_str(), nullptr);
+		path = std::string{rpath} + pathsep + basename(path);
+		free(rpath);
 		struct stat s;
 		if (lstat(path.c_str(), &s) != 0) return path;
 		if ((s.st_mode & S_IFMT) != S_IFLNK) return path;
@@ -273,6 +260,7 @@ namespace util
 		std::string ret{};
 		ret.resize(s.st_size + 1);
 		readlink(path.c_str(), &ret[0], ret.size());
+		ret.resize(ret.size() - 1);
 		return resolve(dir, ret);
 	}
 
@@ -291,6 +279,16 @@ namespace util
 		for (j = i; j < basearr.size(); j++) ret.push_back("..");
 		for (j = i; j < targetarr.size(); j++) if (targetarr[j] != ".") ret.push_back(targetarr[j]);
 		return strjoin(ret, pathsep);
+	}
+
+	bool is_under(std::string parent, std::string child)
+	{
+		parent = normalize(parent);
+		child = normalize(child);
+		if (parent == "/" and child[0] == '/') return true;
+		if (child.substr(0, parent.size()) != parent) return false;
+		if (child.size() == parent.size() || child[parent.size()] == util::pathsep) return true;
+		return false;
 	}
 
 	int fast_atoi(const char *s)
