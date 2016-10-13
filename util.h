@@ -2,6 +2,7 @@
 #define UTIL_H
 #include <string>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 #include <sstream>
 #include <stdexcept>
@@ -25,6 +26,8 @@
 #include <string.h>
 #include <iconv.h>
 #include <random>
+#include <sys/mman.h>
+#include <fcntl.h>
 #include <iostream> // TODO Debug remove
 
 namespace util
@@ -38,6 +41,8 @@ namespace util
 	std::vector<std::string> strsplit(const std::string &str, char delim);
 
 	std::vector<std::string> argvec(int argc, char **argv);
+
+	std::pair<std::unordered_map<std::string, std::vector<std::string>>, std::vector<std::string>> argmap(unsigned int argc, char **argv, const std::string &valid, bool stop = false);
 
 	std::string alnumonly(const std::string &str);
 
@@ -75,6 +80,7 @@ namespace util
 		ss >> ret;
 		return ret;
 	}
+
 
 	// Math
 
@@ -208,6 +214,27 @@ namespace util
 	};
 
 	std::streampos streamsize(std::istream &stream);
+
+
+	// Memory
+
+	class mmap_guard
+	{
+	private:
+		int fd;
+		size_t fsize;
+		void *map;
+	public:
+		void *open(const std::string &fname);
+		void *get() { return map; }
+		void close();
+		size_t size() { return fsize; }
+		mmap_guard() : fd{0}, fsize{0}, map{nullptr} { }
+		mmap_guard(const std::string &fname) : map{nullptr} { open(fname); }
+		mmap_guard(const mmap_guard &orig) = delete;
+		mmap_guard(mmap_guard &&orig) : fd{orig.fd}, fsize{orig.fsize}, map{orig.map} { orig.map = nullptr; }
+		virtual ~mmap_guard() { close(); }
+	};
 }
 
 #endif

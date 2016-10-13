@@ -50,6 +50,59 @@ namespace util
 		return ret;
 	}
 
+	std::pair<std::unordered_map<std::string, std::vector<std::string>>, std::vector<std::string>> argmap(unsigned int argc, char **argv, const std::string &valid, bool stop)
+	{
+		std::unordered_map<char, bool> valid_flags{};
+		unsigned int i;
+		for (i = 0; i < valid.size(); i++)
+		{
+			if (valid_flags.count(valid[i])) throw std::runtime_error{"Flag \"" + valid[i] + std::string{"\" specified twice"}};
+			if (i < valid.size() - 1 && valid[i + 1] == ':') valid_flags[valid[i]] = true;
+			else valid_flags[valid[i]] = false;
+		}
+		std::vector<std::string> args{};
+		std::unordered_map<std::string, std::vector<std::string>> flags{};
+		for (i = 1; i < argc; i++)
+		{
+			std::string arg{argv[i]};
+			if (arg == "--")
+			{
+				i++;
+				break;
+			}
+			else if (arg.size() <= 1 || arg[0] != '-')
+			{
+				if (stop) break;
+				else args.push_back(arg);
+			}
+			else if (arg.size() > 2 && arg.substr(0, 2) == "--") args.push_back(arg);
+			else
+			{
+				for (unsigned int j = 1; j < arg.size(); j++)
+				{
+					if (! valid_flags.count(arg[j])) throw std::runtime_error{"Invalid command-line flag \"" + std::string(1, arg[j]) + "\""};
+					std::string flag(1, arg[j]);
+					if (! flags.count(flag)) flags[flag] = {};
+					if (! valid_flags[arg[j]]) flags[flag].push_back("");
+					else
+					{
+						if (j < arg.size() - 1)
+						{
+							flags[flag].push_back(arg.substr(j + 1));
+							break;
+						}
+						if (i == argc - 1) throw std::runtime_error{"Missing argument for command-line flag \"" + arg + "\""};
+						flags[flag].push_back(std::string{argv[i + 1]});
+						i++;
+						break;
+					}
+				}
+			}
+		}
+		for (; i < argc; i++) args.push_back(std::string{argv[i]});
+		return std::make_pair(flags, args);
+	}
+
 	std::string conv(const std::string &in, const std::string &from, const std::string &to)
 	{
 		iconv_t cd = iconv_open(to.c_str(), from.c_str());
@@ -153,7 +206,7 @@ namespace util
 
 	bool fexists(const std::string &path)
 	{
-		return access(path.c_str(), F_OK);
+		return ! access(path.c_str(), F_OK);
 	}
 
 	bool isdir(const std::string &path)
@@ -203,7 +256,7 @@ namespace util
 				std::string childname{child->d_name};
 				if (childname != "." && childname != "..") fswalk(path + pathsep + childname, fn, userd, follow);
 			}
-			closedir(d);
+			closedir(d); // TODO Catch exceptions so that the directory is always closed
 		}
 	}
 
@@ -483,5 +536,30 @@ namespace util
 			else ret << c;
 		}
 		return convert.to_bytes(ret.str());
+	}
+
+	void *mmap_guard::open(const std::string &fname)
+	{
+		close();
+		struct stat st;
+		if (stat(fname.c_str(), &st)) throw std::runtime_error{"Could not stat " + fname + ": " + std::string{strerror(errno)}};
+		fsize = st.st_size;
+		fd = ::open(fname.c_str(), O_RDONLY);
+		if (fd < 0) throw std::runtime_error{"Could not open " + fname + ": " + std::string{strerror(errno)}};
+		map = mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+		if (map == MAP_FAILED)
+		{
+			::close(fd); // Ignore errors?
+			map = nullptr;
+			throw std::runtime_error{"Could not mmap " + fname + ": " + std::string{strerror(errno)}};
+		}
+		return map;
+	}
+
+	void mmap_guard::close()
+	{
+		if (! map) return;
+		if (munmap(map, fsize)) throw std::runtime_error{"Munmap failed: " + std::string{strerror(errno)}};
+		if (::close(fd)) throw std::runtime_error{"Close failed: " + std::string{strerror(errno)}};
 	}
 }
