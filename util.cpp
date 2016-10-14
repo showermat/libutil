@@ -538,6 +538,31 @@ namespace util
 		return convert.to_bytes(ret.str());
 	}
 
+	uint32_t str2ip(const std::string &in) // NOTE Endian-specific!  Not portable between architectures
+	{
+		char ret[4];
+		std::vector<std::string> octets = strsplit(in, '.');
+		if (octets.size() != 4) throw std::runtime_error{"Wrong number of octets in IPv4 address " + in};
+		for (int i = 0; i < 4; i++)
+		{
+			uint8_t octet = static_cast<uint8_t>(s2t<int>(octets[i])); // TODO Error checking
+			ret[i] = octet;
+		}
+		return *reinterpret_cast<uint32_t *>(ret);
+	}
+
+	std::string ip2str(uint32_t in)
+	{
+		uint8_t *octets = reinterpret_cast<uint8_t *>(&in);
+		std::stringstream ret{};
+		for (int i = 0; i < 4; i++)
+		{
+			if (i > 0) ret << ".";
+			ret << static_cast<int>(octets[i]);
+		}
+		return ret.str();
+	}
+
 	void *mmap_guard::open(const std::string &fname)
 	{
 		close();

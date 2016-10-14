@@ -172,6 +172,10 @@ namespace util
 
 	std::string to_htmlent(const std::string &str);
 
+	uint32_t str2ip(const std::string &in);
+
+	std::string ip2str(uint32_t in);
+
 
 	// Time
 
