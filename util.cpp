@@ -105,7 +105,7 @@ namespace util
 
 	std::string conv(const std::string &in, const std::string &from, const std::string &to)
 	{
-		iconv_t cd = iconv_open(to.c_str(), from.c_str());
+		iconv_t cd = ::iconv_open(to.c_str(), from.c_str());
 		if (cd == (iconv_t) -1) throw std::runtime_error{"Can't convert from " + from + " to " + to};
 		std::stringstream ret{};
 		std::string buf(256, '\0');
@@ -114,7 +114,7 @@ namespace util
 		char *outaddr = &buf[0];
 		while (nin > 0)
 		{
-			size_t status = iconv(cd, &inaddr, &nin, &outaddr, &nout);
+			size_t status = ::iconv(cd, &inaddr, &nin, &outaddr, &nout);
 			if (status == (size_t) -1)
 			{
 				if (errno == E2BIG)
@@ -123,13 +123,20 @@ namespace util
 					nout = buf.size();
 					outaddr = &buf[0];
 				}
-				else throw std::runtime_error{"Couldn't convert string: " + std::string{strerror(errno)}};
+				else throw std::runtime_error{"Couldn't convert string: " + std::string{::strerror(errno)}};
 			}
 		}
 		buf.resize(outaddr - &buf[0]);
 		ret << buf;
-		iconv_close(cd);
+		::iconv_close(cd);
 		return ret.str();
+	}
+
+	std::string env_or(const std::string &var, const std::string &def)
+	{
+		char *val = ::getenv(var.c_str());
+		if (val) return std::string{val};
+		return def;
 	}
 
 	std::string alnumonly(const std::string &str)
@@ -168,7 +175,7 @@ namespace util
 
 	void rm(const std::string &path)
 	{
-		if (unlink(path.c_str())) throw std::runtime_error{"Could not remove " + path + ": " + std::string{strerror(errno)}};
+		if (::unlink(path.c_str())) throw std::runtime_error{"Could not remove " + path + ": " + std::string{::strerror(errno)}};
 	}
 
 	bool rm_pred(const std::string &path, const struct stat *st, void *arg) // FIXME Need to add DEPTH option to fswalk
@@ -185,16 +192,16 @@ namespace util
 	std::string exepath()
 	{
 		std::string ret(2048, '\0');
-		int len = readlink("/proc/self/exe", &ret[0], ret.size());
+		int len = ::readlink("/proc/self/exe", &ret[0], ret.size());
 		ret.resize(len);
 		return ret;
 	}
 
-	std::size_t fsize(const std::string &path)
+	size_t fsize(const std::string &path)
 	{
 		struct stat statbuf;
-		if (stat(path.c_str(), &statbuf) < 0) throw std::runtime_error{"Couldn't stat file " + path};
-		return static_cast<std::size_t>(statbuf.st_size);
+		if (::stat(path.c_str(), &statbuf) < 0) throw std::runtime_error{"Couldn't stat file " + path};
+		return static_cast<size_t>(statbuf.st_size);
 	}
 
 	std::string timestr(const std::string &fmt, std::time_t time)
@@ -206,14 +213,14 @@ namespace util
 
 	bool fexists(const std::string &path)
 	{
-		return ! access(path.c_str(), F_OK);
+		return ! ::access(path.c_str(), F_OK);
 	}
 
 	bool isdir(const std::string &path)
 	{
-		DIR *d = opendir(path.c_str());
+		DIR *d = ::opendir(path.c_str());
 		if (! d) return false;
-		closedir(d);
+		::closedir(d);
 		return true;
 	}
 
@@ -222,17 +229,17 @@ namespace util
 		std::unordered_set<std::string> ret{};
 		std::regex *testre = nullptr;
 		if (test != "") testre = new std::regex{test};
-		DIR *d = opendir(dir.c_str());
+		DIR *d = ::opendir(dir.c_str());
 		if (! d) throw std::runtime_error{"Couldn't open directory " + dir};
 		struct dirent *file;
-		while ((file = readdir(d)))
+		while ((file = ::readdir(d)))
 		{
 			std::string fname{file->d_name};
 			if (fname == "." || fname == "..") continue;
 			if (testre && ! std::regex_search(fname, *testre)) continue;
 			ret.insert(fname);
 		}
-		closedir(d);
+		::closedir(d);
 		delete testre;
 		return ret;
 	}
@@ -241,22 +248,22 @@ namespace util
 	{
 		int statret;
 		struct stat sb;
-		if (follow) statret = stat(path.c_str(), &sb);
-		else statret = lstat(path.c_str(), &sb);
+		if (follow) statret = ::stat(path.c_str(), &sb);
+		else statret = ::lstat(path.c_str(), &sb);
 		if (statret) return; //throw std::runtime_error{"Couldn't stat " + path + ": " + std::string{strerror(errno)}}; // TODO Error handling?
 		if (! fn(path, &sb, userd)) return;
-		if (! follow && (sb.st_mode & S_IFMT) == S_IFLNK && stat(path.c_str(), &sb)) return; // Re-process links as their destinations
+		if (! follow && (sb.st_mode & S_IFMT) == S_IFLNK && ::stat(path.c_str(), &sb)) return; // Re-process links as their destinations
 		if ((sb.st_mode & S_IFMT) == S_IFDIR)
 		{
-			DIR *d = opendir(path.c_str());
+			DIR *d = ::opendir(path.c_str());
 			if (!d ) return; // TODO
 			struct dirent *child;
-			while ((child = readdir(d)))
+			while ((child = ::readdir(d)))
 			{
 				std::string childname{child->d_name};
 				if (childname != "." && childname != "..") fswalk(path + pathsep + childname, fn, userd, follow);
 			}
-			closedir(d); // TODO Catch exceptions so that the directory is always closed
+			::closedir(d); // TODO Catch exceptions so that the directory is always closed
 		}
 	}
 
@@ -303,16 +310,16 @@ namespace util
 
 	std::string linktarget(std::string path) // TODO Not handling errors
 	{
-		char *rpath = realpath(dirname(path).c_str(), nullptr);
+		char *rpath = ::realpath(dirname(path).c_str(), nullptr);
 		path = std::string{rpath} + pathsep + basename(path);
-		free(rpath);
+		::free(rpath);
 		struct stat s;
-		if (lstat(path.c_str(), &s) != 0) return path;
+		if (::lstat(path.c_str(), &s) != 0) return path;
 		if ((s.st_mode & S_IFMT) != S_IFLNK) return path;
 		std::string dir{dirname(path.c_str())};
 		std::string ret{};
 		ret.resize(s.st_size + 1);
-		readlink(path.c_str(), &ret[0], ret.size());
+		::readlink(path.c_str(), &ret[0], ret.size());
 		ret.resize(ret.size() - 1);
 		return resolve(dir, ret);
 	}
@@ -371,16 +378,16 @@ namespace util
 	{
 		std::string extmime = ext2mime(path);
 		if (extmime != "") return extmime;
-		magic_t myt = magic_open(MAGIC_ERROR | MAGIC_MIME);
-		magic_load(myt, nullptr);
-		const char *type = magic_buffer(myt, &data[0], data.size());
+		magic_t myt = ::magic_open(MAGIC_ERROR | MAGIC_MIME);
+		::magic_load(myt, nullptr);
+		const char *type = ::magic_buffer(myt, &data[0], data.size());
 		if (type == nullptr)
 		{
-			magic_close(myt);
+			::magic_close(myt);
 			return "application/octet-stream";
 		}
 		std::string ret{type};
-		magic_close(myt);
+		::magic_close(myt);
 		return ret;
 	}
 
@@ -388,16 +395,16 @@ namespace util
 	{
 		std::string extmime = ext2mime(path);
 		if (extmime != "") return extmime;
-		magic_t myt = magic_open(MAGIC_ERROR | MAGIC_MIME);
-		magic_load(myt, nullptr);
-		const char *type = magic_file(myt, path.c_str());
+		magic_t myt = ::magic_open(MAGIC_ERROR | MAGIC_MIME);
+		::magic_load(myt, nullptr);
+		const char *type = ::magic_file(myt, path.c_str());
 		if (type == nullptr)
 		{
-			magic_close(myt);
+			::magic_close(myt);
 			return "application/octet-stream";
 		}
 		std::string ret{type};
-		magic_close(myt);
+		::magic_close(myt);
 		return ret;
 	}
 
@@ -567,16 +574,16 @@ namespace util
 	{
 		close();
 		struct stat st;
-		if (stat(fname.c_str(), &st)) throw std::runtime_error{"Could not stat " + fname + ": " + std::string{strerror(errno)}};
+		if (::stat(fname.c_str(), &st)) throw std::runtime_error{"Could not stat " + fname + ": " + std::string{::strerror(errno)}};
 		fsize = st.st_size;
 		fd = ::open(fname.c_str(), O_RDONLY);
-		if (fd < 0) throw std::runtime_error{"Could not open " + fname + ": " + std::string{strerror(errno)}};
-		map = mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+		if (fd < 0) throw std::runtime_error{"Could not open " + fname + ": " + std::string{::strerror(errno)}};
+		map = ::mmap(nullptr, fsize, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
 		if (map == MAP_FAILED)
 		{
 			::close(fd); // Ignore errors?
 			map = nullptr;
-			throw std::runtime_error{"Could not mmap " + fname + ": " + std::string{strerror(errno)}};
+			throw std::runtime_error{"Could not mmap " + fname + ": " + std::string{::strerror(errno)}};
 		}
 		return map;
 	}
@@ -584,7 +591,7 @@ namespace util
 	void mmap_guard::close()
 	{
 		if (! map) return;
-		if (munmap(map, fsize)) throw std::runtime_error{"Munmap failed: " + std::string{strerror(errno)}};
-		if (::close(fd)) throw std::runtime_error{"Close failed: " + std::string{strerror(errno)}};
+		if (::munmap(map, fsize)) throw std::runtime_error{"Munmap failed: " + std::string{::strerror(errno)}};
+		if (::close(fd)) throw std::runtime_error{"Close failed: " + std::string{::strerror(errno)}};
 	}
 }

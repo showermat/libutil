@@ -54,6 +54,8 @@ namespace util
 
 	std::string conv(const std::string &in, const std::string &from, const std::string &to);
 
+	std::string env_or(const std::string &var, const std::string &def = "");
+
 	template <typename It, typename T> It find_nth(It begin, It end, const T& query, unsigned int n)
 	{
 		if (n == 0) return begin;
@@ -133,7 +135,7 @@ namespace util
 
 	std::string exepath();
 
-	std::size_t fsize(const std::string &path);
+	size_t fsize(const std::string &path);
 
 	bool fexists(const std::string &path);
 
