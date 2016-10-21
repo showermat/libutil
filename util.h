@@ -147,6 +147,8 @@ namespace util
 
 	std::unordered_set<std::string> recursive_ls(const std::string &base, const std::string &test = "");
 
+	std::string realpath(const std::string &path);
+
 	std::string normalize(const std::string &path);
 
 	std::string resolve(const std::string &base, const std::string &path);

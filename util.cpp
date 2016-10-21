@@ -280,6 +280,14 @@ namespace util
 		return ret;
 	}
 
+	std::string realpath(const std::string &path)
+	{
+		char *cret = ::realpath(path.c_str(), nullptr);
+		std::string ret{cret};
+		::free(cret);
+		return ret;
+	}
+
 	std::string normalize(const std::string &path)
 	{
 		if (! path.size()) return ".";
@@ -310,9 +318,7 @@ namespace util
 
 	std::string linktarget(std::string path) // TODO Not handling errors
 	{
-		char *rpath = ::realpath(dirname(path).c_str(), nullptr);
-		path = std::string{rpath} + pathsep + basename(path);
-		::free(rpath);
+		path = realpath(dirname(path)) + pathsep + basename(path);
 		struct stat s;
 		if (::lstat(path.c_str(), &s) != 0) return path;
 		if ((s.st_mode & S_IFMT) != S_IFLNK) return path;
@@ -343,8 +349,8 @@ namespace util
 
 	bool is_under(std::string parent, std::string child)
 	{
-		parent = normalize(parent);
-		child = normalize(child);
+		parent = realpath(parent);
+		child = realpath(child);
 		if (parent == "/" and child[0] == '/') return true;
 		if (child.substr(0, parent.size()) != parent) return false;
 		if (child.size() == parent.size() || child[parent.size()] == util::pathsep) return true;
