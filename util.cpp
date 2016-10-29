@@ -188,7 +188,26 @@ namespace util
 	{
 		fswalk(path, rm_pred, nullptr);
 	}
-	
+
+	void mkdir(const std::string &path, int mode, bool skipexist)
+	{
+		if (::mkdir(path.c_str(), mode) < 0)
+		{
+			if (errno == EEXIST && skipexist) return;
+			throw std::runtime_error{"Could not create directory " + path + ": " + std::string{::strerror(errno)}};
+		}
+	}
+
+	void cp(const std::string &src, const std::string &dest)
+	{
+		std::ifstream in{src};
+		if (! in) throw std::runtime_error{"Couldn't open " + src + " for reading"};
+		std::ofstream out{dest};
+		if (! out) throw std::runtime_error{"Couldn't open " + dest + " for writing"};
+		out << in.rdbuf();
+		if (! out) throw std::runtime_error{"Copy failed"};
+	}
+
 	std::string exepath()
 	{
 		std::string ret(2048, '\0');
@@ -200,7 +219,7 @@ namespace util
 	size_t fsize(const std::string &path)
 	{
 		struct stat statbuf;
-		if (::stat(path.c_str(), &statbuf) < 0) throw std::runtime_error{"Couldn't stat file " + path};
+		if (::stat(path.c_str(), &statbuf) < 0) throw std::runtime_error{"Couldn't stat file " + path + ": " + std::string{::strerror(errno)}};
 		return static_cast<size_t>(statbuf.st_size);
 	}
 
@@ -222,6 +241,11 @@ namespace util
 		if (! d) return false;
 		::closedir(d);
 		return true;
+	}
+
+	bool isfile(const std::string &path)
+	{
+		return fexists(path) && ! isdir(path);
 	}
 
 	std::unordered_set<std::string> ls(const std::string &dir, const std::string &test)

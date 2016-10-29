@@ -13,6 +13,7 @@
 #include <functional>
 #include <regex>
 #include <sstream>
+#include <fstream>
 #include <iomanip>
 #include <locale>
 #include <codecvt>
@@ -20,6 +21,7 @@
 #include <glob.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <magic.h>
@@ -133,6 +135,10 @@ namespace util
 
 	void rm_recursive(const std::string &path);
 
+	void mkdir(const std::string &path, int mode = 0755, bool skipexist = false);
+
+	void cp(const std::string &src, const std::string &dest);
+
 	std::string exepath();
 
 	size_t fsize(const std::string &path);
@@ -140,6 +146,8 @@ namespace util
 	bool fexists(const std::string &path);
 
 	bool isdir(const std::string &path);
+
+	bool isfile(const std::string &path); // Returns true for anything that exists but is not a directory
 
 	void fswalk(const std::string &path, const std::function<bool(const std::string &, const struct stat *, void *)> &fn, void *userd, bool follow = false);
 
