@@ -451,13 +451,14 @@ namespace util
 		return ret.str();
 	}
 
-	std::string urldecode(const std::string &str)
+	std::string urldecode(const std::string &str, bool plus)
 	{
 		std::ostringstream ret{};
 		unsigned int i = 0;
 		while (i != str.size())
 		{
-			if (str[i] == '%' && i + 2 < str.size())
+			if (plus && str[i] == '+') ret << ' ';
+			else if (str[i] == '%' && i + 2 < str.size())
 			{
 				int c;
 				std::stringstream buf{};

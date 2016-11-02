@@ -178,7 +178,7 @@ namespace util
 
 	std::string urlencode(const std::string &str);
 
-	std::string urldecode(const std::string &str);
+	std::string urldecode(const std::string &str, bool plus = false);
 
 	std::string from_htmlent(const std::string &str);
 
