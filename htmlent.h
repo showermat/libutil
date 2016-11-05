@@ -1,5 +1,5 @@
-#ifndef HTMLENT_H
-#define HTMLENT_H
+#ifndef UTIL_HTMLENT_H
+#define UTIL_HTMLENT_H
 #include <map>
 #include <string>
 
@@ -259,5 +259,5 @@ const std::map<std::string, std::string> htmlent{
 	{"diams", "♦"}
 };
 
-#endif // HTMLENT_H
+#endif
 

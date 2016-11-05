@@ -1,4 +1,6 @@
-﻿#include <map>
+﻿#ifndef UTIL_MIME_H
+#define UTIL_MIME_H
+#include <map>
 #include <string>
 
 /* I could use a ridiculously long list of every MIME type ever, but this plus
@@ -48,7 +50,7 @@ const std::map<std::string, std::string> mime_types{
 	{"sit", "application/x-stuffit"},
 	{"svg", "image/svg+xml"},
 	{"swf", "application/x-shockwave-flash"},
-	{"gz", "application/x-tar"}, // This is a problem.  It should be .tar.gz, but I'm only checking the portion after the last period.
+	{"gz", "application/x-tar"}, // FIXME This is a problem.  It should be .tar.gz, but I'm only checking the portion after the last period.
 	{"tgz", "application/x-tar"},
 	{"tiff", "image/tiff"},
 	{"tsv", "text/tab-separated-values"},
@@ -60,3 +62,6 @@ const std::map<std::string, std::string> mime_types{
 	{"xz", "application/x-xz"},
 	{"zip", "application/zip,"}
 };
+
+#endif
+

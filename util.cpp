@@ -149,7 +149,7 @@ namespace util
 
 	std::string utf8lower(const std::string &str)
 	{
-		std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> convert{};
+		std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> convert{"�", L"�"};
 		std::basic_ostringstream<wchar_t> ss{};
 		for (const wchar_t &c : convert.from_bytes(str)) ss << std::tolower(c, std::locale{ucslocale});
 		return convert.to_bytes(ss.str());
@@ -173,9 +173,17 @@ namespace util
 		return normalize(path + "/..");
 	}
 
-	void rm(const std::string &path)
+	void rm(const std::string &path, bool isdir)
 	{
-		if (::unlink(path.c_str())) throw std::runtime_error{"Could not remove " + path + ": " + std::string{::strerror(errno)}};
+		int fail;
+		if (! isdir)
+		{
+			fail = ::unlink(path.c_str());
+			if (! fail) return;
+			if (fail && errno != EISDIR) throw std::runtime_error{"Could not unlink " + path + ": " + std::string{::strerror(errno)}};
+		}
+		fail = ::rmdir(path.c_str());
+		if (fail) throw std::runtime_error{"Could not rmdir " + path + ": " + std::string{::strerror(errno)}};
 	}
 
 	bool rm_pred(const std::string &path, const struct stat *st, void *arg) // FIXME Need to add DEPTH option to fswalk
@@ -186,7 +194,7 @@ namespace util
 
 	void rm_recursive(const std::string &path)
 	{
-		fswalk(path, rm_pred, nullptr);
+		fswalk(path, rm_pred, nullptr, fswopt::depth);
 	}
 
 	void mkdir(const std::string &path, int mode, bool skipexist)
@@ -268,14 +276,15 @@ namespace util
 		return ret;
 	}
 
-	void fswalk(const std::string &path, const std::function<bool(const std::string &, const struct stat *, void *)> &fn, void *userd, bool follow)
+	void fswalk(const std::string &path, const std::function<bool(const std::string &, const struct stat *, void *)> &fn, void *userd, int flags)
 	{
 		int statret;
 		struct stat sb;
+		bool follow = flags & fswopt::follow, depth = flags & fswopt::depth;
 		if (follow) statret = ::stat(path.c_str(), &sb);
 		else statret = ::lstat(path.c_str(), &sb);
 		if (statret) return; //throw std::runtime_error{"Couldn't stat " + path + ": " + std::string{strerror(errno)}}; // TODO Error handling?
-		if (! fn(path, &sb, userd)) return;
+		if (! depth && ! fn(path, &sb, userd)) return;
 		if (! follow && (sb.st_mode & S_IFMT) == S_IFLNK && ::stat(path.c_str(), &sb)) return; // Re-process links as their destinations
 		if ((sb.st_mode & S_IFMT) == S_IFDIR)
 		{
@@ -285,10 +294,11 @@ namespace util
 			while ((child = ::readdir(d)))
 			{
 				std::string childname{child->d_name};
-				if (childname != "." && childname != "..") fswalk(path + pathsep + childname, fn, userd, follow);
+				if (childname != "." && childname != "..") fswalk(path + pathsep + childname, fn, userd, flags);
 			}
 			::closedir(d); // TODO Catch exceptions so that the directory is always closed
 		}
+		if (depth && ! fn(path, &sb, userd)) return;
 	}
 
 	bool ls_pred(const std::string &path, const struct stat *st, void *arg)
@@ -408,7 +418,7 @@ namespace util
 	{
 		std::string extmime = ext2mime(path);
 		if (extmime != "") return extmime;
-		magic_t myt = ::magic_open(MAGIC_ERROR | MAGIC_MIME);
+		magic_t myt = ::magic_open(MAGIC_ERROR | MAGIC_MIME_TYPE);
 		::magic_load(myt, nullptr);
 		const char *type = ::magic_buffer(myt, &data[0], data.size());
 		if (type == nullptr)
@@ -425,7 +435,7 @@ namespace util
 	{
 		std::string extmime = ext2mime(path);
 		if (extmime != "") return extmime;
-		magic_t myt = ::magic_open(MAGIC_ERROR | MAGIC_MIME);
+		magic_t myt = ::magic_open(MAGIC_ERROR | MAGIC_MIME_TYPE);
 		::magic_load(myt, nullptr);
 		const char *type = ::magic_file(myt, path.c_str());
 		if (type == nullptr)
@@ -563,17 +573,16 @@ namespace util
 
 	std::string to_htmlent(const std::string &str)
 	{
-		static std::map<wchar_t, std::wstring> basic_ent{{L'"', L"quot"}, {L'&', L"amp"}, {L'\'', L"apos"}, {L'<', L"lt"}, {L'>', L"gt"}};
-		std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> convert{};
-		std::basic_ostringstream<wchar_t> ret{};
-		for (const wchar_t &c : convert.from_bytes(str))
+		static std::map<char, std::string> basic_ent{{'"', "quot"}, {'&', "amp"}, {'\'', "apos"}, {'<', "lt"}, {'>', "gt"}};
+		std::ostringstream ret{};
+		for (const char &c : str)
 		{
-			if (basic_ent.count(c)) ret << L"&" << basic_ent[c] << L";";
+			if (basic_ent.count(c)) ret << "&" << basic_ent[c] << ";";
 			//else if (c <= L'~') ret << c; // What about control characters?
 			//else ret << L"&#" << static_cast<wint_t>(c) << L";";
 			else ret << c;
 		}
-		return convert.to_bytes(ret.str());
+		return ret.str();
 	}
 
 	uint32_t str2ip(const std::string &in) // NOTE Endian-specific!  Not portable between architectures
@@ -626,3 +635,4 @@ namespace util
 		if (::close(fd)) throw std::runtime_error{"Close failed: " + std::string{::strerror(errno)}};
 	}
 }
+

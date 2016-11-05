@@ -1,5 +1,5 @@
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef UTIL_UTIL_H
+#define UTIL_UTIL_H
 #include <string>
 #include <unordered_set>
 #include <unordered_map>
@@ -44,7 +44,7 @@ namespace util
 
 	std::vector<std::string> argvec(int argc, char **argv);
 
-	std::pair<std::unordered_map<std::string, std::vector<std::string>>, std::vector<std::string>> argmap(unsigned int argc, char **argv, const std::string &valid, bool stop = false);
+	std::pair<std::unordered_map<std::string, std::vector<std::string>>, std::vector<std::string>> argmap(unsigned int argc, char **argv, const std::string &valid = "", bool stop = false);
 
 	std::string alnumonly(const std::string &str);
 
@@ -131,7 +131,7 @@ namespace util
 
 	std::string dirname(std::string path);
 
-	void rm(const std::string &path);
+	void rm(const std::string &path, bool isdir = false);
 
 	void rm_recursive(const std::string &path);
 
@@ -149,7 +149,9 @@ namespace util
 
 	bool isfile(const std::string &path); // Returns true for anything that exists but is not a directory
 
-	void fswalk(const std::string &path, const std::function<bool(const std::string &, const struct stat *, void *)> &fn, void *userd, bool follow = false);
+	namespace fswopt { const int follow = 1, depth = 2; }
+
+	void fswalk(const std::string &path, const std::function<bool(const std::string &, const struct stat *, void *)> &fn, void *userd = nullptr, int flags = 0);
 
 	std::unordered_set<std::string> ls(const std::string &dir, const std::string &test = "");
 
@@ -227,6 +229,8 @@ namespace util
 		int_type underflow();
 		pos_type seekpos(pos_type target, std::ios_base::openmode which);
 		pos_type seekoff(off_type off, std::ios_base::seekdir dir, std::ios_base::openmode which);
+		std::streampos offset() { return start_; }
+		std::streampos size() { return size_; }
 	};
 
 	std::streampos streamsize(std::istream &stream);

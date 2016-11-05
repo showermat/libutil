@@ -1,5 +1,5 @@
-#ifndef PREFS_H
-#define PREFS_H
+#ifndef UTIL_PREFS_H
+#define UTIL_PREFS_H
 #include <string>
 #include <map>
 #include <vector>
