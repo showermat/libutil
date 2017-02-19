@@ -103,6 +103,25 @@ namespace util
 		return std::make_pair(flags, args);
 	}
 
+	std::string gsub(const std::string &in, const std::string &find, const std::string &replace) // TODO Could be more efficient
+	{
+		std::ostringstream ret{};
+		for (size_t idx = 0; idx + find.size() <= in.size();)
+		{
+			if (in.substr(idx, find.size()) == find)
+			{
+				ret << replace;
+				idx += find.size();
+			}
+			else
+			{
+				ret << in[idx];
+				idx += 1;
+			}
+		}
+		return ret.str();
+	}
+
 	std::string conv(const std::string &in, const std::string &from, const std::string &to)
 	{
 		iconv_t cd = ::iconv_open(to.c_str(), from.c_str());
@@ -317,6 +336,7 @@ namespace util
 	std::string realpath(const std::string &path)
 	{
 		char *cret = ::realpath(path.c_str(), nullptr);
+		if (! cret) return ""; // FIXME Error handling for incorrect input
 		std::string ret{cret};
 		::free(cret);
 		return ret;

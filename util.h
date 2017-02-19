@@ -58,6 +58,8 @@ namespace util
 
 	std::string env_or(const std::string &var, const std::string &def = "");
 
+	std::string gsub(const std::string &in, const std::string &find, const std::string &replace);
+
 	template <typename It, typename T> It find_nth(It begin, It end, const T& query, unsigned int n)
 	{
 		if (n == 0) return begin;
