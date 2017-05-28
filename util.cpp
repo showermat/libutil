@@ -654,5 +654,54 @@ namespace util
 		if (::munmap(map, fsize)) throw std::runtime_error{"Munmap failed: " + std::string{::strerror(errno)}};
 		if (::close(fd)) throw std::runtime_error{"Close failed: " + std::string{::strerror(errno)}};
 	}
+
+	int system(const std::string &bin, const std::vector<std::string> &args)
+	{
+		std::vector<const char *>cargs{};
+		cargs.push_back(bin.c_str());
+		for (const std::string &arg : args) cargs.push_back(arg.c_str());
+		cargs.push_back(0);
+		pid_t pid = fork();
+		if (pid == -1) throw std::runtime_error{"Failed to fork"};
+		if (pid == 0) execvp(bin.c_str(), (char **) &cargs[0]);
+		int ret;
+		wait(&ret);
+		return ret;
+	}
+
+	std::pair<int, std::string> sysio(const std::string &bin, const std::vector<std::string> &args, const std::string &in, bool readout)
+	{
+		std::vector<const char *>cargs{};
+		cargs.push_back(bin.c_str());
+		for (const std::string &arg : args) cargs.push_back(arg.c_str());
+		cargs.push_back(0);
+		int infd[2], outfd[2];
+		if (pipe(infd) || pipe(outfd)) throw std::runtime_error{"Failed to open pipe: " + std::string{strerror(errno)}};
+		pid_t pid = fork();
+		if (pid == -1) throw std::runtime_error{"Failed to fork: " + std::string{strerror(errno)}}; // TODO Close pipes
+		if (pid == 0)
+		{
+			dup2(infd[0], 0); dup2(outfd[1], 1);
+			close(infd[0]); close(infd[1]);
+			close(outfd[0]); close(outfd[1]);
+			if (! readout) close(1);
+			execvp(bin.c_str(), (char **) &cargs[0]);
+		}
+		close(infd[0]); close(outfd[1]);
+		if (write(infd[1], &in[0], in.size()) != (int) in.size()) throw std::runtime_error{"Failed to write all input"}; // FIXME Call write multiple times
+		close(infd[1]);
+		int ret; wait(&ret);
+		std::string out, buf;
+		buf.resize(256);
+		while (true)
+		{
+			int count = read(outfd[0], &buf[0], buf.size());
+			if (count == 0) break;
+			if (count < 0) throw std::runtime_error{"Failed to read all output: " + std::string{strerror(errno)}};
+			out += buf.substr(0, count);
+		}
+		close(outfd[0]);
+		return std::make_pair(ret, out);
+	}
 }
 

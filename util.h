@@ -30,6 +30,8 @@
 #include <random>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <cstdlib>
+#include <sys/wait.h>
 #include <iostream> // TODO Debug remove
 
 namespace util
@@ -257,6 +259,13 @@ namespace util
 		mmap_guard(mmap_guard &&orig) : fd{orig.fd}, fsize{orig.fsize}, map{orig.map} { orig.map = nullptr; }
 		virtual ~mmap_guard() { close(); }
 	};
+
+
+	// System
+	
+	int system(const std::string &bin, const std::vector<std::string> &args);
+
+	std::pair<int, std::string> sysio(const std::string &bin, const std::vector<std::string> &args, const std::string &in, bool readout);
 }
 
 #endif
