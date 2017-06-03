@@ -42,6 +42,8 @@ namespace util
 
 	std::string strjoin(const std::vector<std::string> &list, char delim, unsigned int start = 0, unsigned int end = 0);
 
+	std::vector<std::string> strsplit(const std::string &str, const std::string &delim);
+
 	std::vector<std::string> strsplit(const std::string &str, char delim);
 
 	std::vector<std::string> argvec(int argc, char **argv);

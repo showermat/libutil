@@ -6,22 +6,32 @@ namespace util
 {
 	const int ftw_nopenfd = 256;
 
-	std::vector<std::string> strsplit(const std::string &str, char delim)
+	std::vector<std::string> strsplit(const std::string &str, const std::string &delim)
 	{
 		std::vector<std::string> ret{};
-		std::string cur{};
-		for (std::string::const_iterator iter = str.cbegin(); iter != str.cend(); iter++)
+		std::ostringstream cur{};
+		std::size_t i = 0;
+		while (i < str.size())
 		{
-			if (*iter == delim)
+			if (i <= str.size() - delim.size() && str.substr(i, delim.size()) == delim)
 			{
-				//if (! cur.size()) continue;
-				ret.push_back(cur);
-				cur.clear();
+				ret.push_back(cur.str());
+				cur.str(std::string{});
+				i += delim.size();
 			}
-			else cur += *iter;
+			else
+			{
+				cur << str[i];
+				i += 1;
+			}
 		}
-		if (cur.size()) ret.push_back(cur);
+		ret.push_back(cur.str());
 		return ret;
+	}
+
+	std::vector<std::string> strsplit(const std::string &str, char delim)
+	{
+		return strsplit(str, std::string(1, delim));
 	}
 
 	std::string strjoin(const std::vector<std::string> &list, char delim, unsigned int start, unsigned int end)

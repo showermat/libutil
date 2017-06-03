@@ -1,5 +1,5 @@
-#ifndef ZSR_LUA_H
-#define ZSR_LUA_H
+#ifndef UTIL_LUA_H
+#define UTIL_LUA_H
 #include <stdexcept>
 #include <string>
 #include <vector>
