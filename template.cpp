@@ -2,9 +2,16 @@
 
 namespace templ
 {
+	std::vector<std::string> split(const std::string &in, unsigned int sects, const std::string &id, const std::string &sep)
+	{
+		std::vector<std::string> ret = util::strsplit(in, "\n" + sep + "\n");
+		if (sects > 0 && ret.size() != sects) throw std::runtime_error{"Expected " + util::t2s(sects) + " sections in template " + id + ", but got " + util::t2s(ret.size())};
+		return ret;
+	}
+
 	std::vector<std::string> split(const std::string &in, const std::string &sep)
 	{
-		return util::strsplit(in, "\n" + sep + "\n");
+		return split(in, 0, "", sep);
 	}
 
 	bool test(const std::string &expr, const std::unordered_map<std::string, std::string> &vars)

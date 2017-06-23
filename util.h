@@ -92,6 +92,20 @@ namespace util
 	}
 
 
+	// Metaprogramming
+
+	// A lot of stuff I don't understand at http://aherrmann.github.io/programming/2016/02/28/unpacking-tuples-in-cpp14/
+	template <typename F, typename Args, size_t... Is> constexpr auto apply_inner(F func, Args args, std::index_sequence<Is...>)
+	{
+		return func(std::get<Is>(args)...);
+	}
+
+	template <typename F, typename Args> constexpr auto apply(F func, Args args)
+	{
+		return apply_inner(func, args, std::make_index_sequence<std::tuple_size<Args>{}>{});
+	}
+
+
 	// Math
 
 	template <typename T> T randint(T min, T max)
