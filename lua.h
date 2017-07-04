@@ -54,6 +54,7 @@ namespace lua
 		virtual int internal_call(lua_State *s) { return -1; }
 		virtual ~fnwrap_base() { }
 	};
+
 	template<typename Ret, typename... Args> class fnwrap : public fnwrap_base
 	{
 	private:
@@ -115,8 +116,9 @@ namespace lua
 		{
 			state.getglobal(func);
 			state.push_args(args...);
-			if (state.pcall(sizeof...(Args), 1, 0) != LUA_OK) err();
+			if (state.pcall(sizeof...(Args), 0, 0) != LUA_OK) err();
 		}
+		template <typename... Args> iter calltbl(const std::string &func, Args... args); // FIXME
 		template <typename Ret, typename... Args> void expose(std::function<Ret(Args...)> func, const std::string &name)
 		{
 			 funcs.emplace(name, std::unique_ptr<fnwrap_base>{new fnwrap<Ret, Args...>{state, func, name}});
@@ -141,8 +143,12 @@ namespace lua
 	private:
 		exec &o;
 		int offset;
+		bool valid;
+		iter(exec &o);
+		friend class exec;
 	public:
-		iter(exec &o, const std::string &name);
+		iter(const iter &orig) = delete;
+		iter(iter &&orig);
 		bool next();
 		template <typename K, typename V> std::pair<K, V> get()
 		{
@@ -150,9 +156,32 @@ namespace lua
 			K key = o.state.to<K>();
 			return std::make_pair(key, val);
 		}
+		template <typename K, typename V> std::unordered_map<K, V> tomap()
+		{
+			std::unordered_map<K, V> ret{};
+			while (next()) ret.insert(get<K, V>());
+			close();
+			return ret;
+		}
+		template <typename V> std::vector<V> tovec()
+		{
+			std::vector<V> ret{};
+			while (next()) ret.push_back(get<int, V>().second);
+			close();
+			return ret;
+		}
 		void close();
 		virtual ~iter() { close(); }
 	};
+
+	// C++ sucks.
+	template <typename... Args> iter exec::calltbl(const std::string &func, Args... args)
+	{
+		state.getglobal(func);
+		state.push_args(args...);
+		if (state.pcall(sizeof...(Args), 1, 0) != LUA_OK) err();
+		return iter{*this};
+	}
 }
 
 #endif

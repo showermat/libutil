@@ -46,11 +46,15 @@ namespace lua
 	int luastate::loadfile(const std::string &fname) { return luaL_loadfile(state, fname.c_str()); }
 	int luastate::pcall(int nargs, int nres, int msgh) { return lua_pcall(state, nargs, nres, msgh); }
 
-	iter::iter(exec &owner, const std::string &name) : o{owner}, offset{0}
+	iter::iter(exec &owner) : o{owner}, offset{0}, valid{true}
 	{
-		o.state.getglobal(name);
 		offset = o.state.gettop();
 		o.state.push(nullptr);
+	}
+
+	iter::iter(iter &&orig) : o{orig.o}, offset{orig.offset}, valid{true}
+	{
+		orig.valid = false;
 	}
 
 	bool iter::next()
@@ -60,7 +64,8 @@ namespace lua
 
 	void iter::close()
 	{
-		o.state.remove(offset);
+		if (valid) o.state.remove(offset);
+		valid = false;
 	}
 
 	void exec::err()
@@ -93,7 +98,8 @@ namespace lua
 
 	iter exec::table_iter(const std::string &name)
 	{
-		return iter{*this, name};
+		state.getglobal(name);
+		return iter{*this};
 	}
 }
 
