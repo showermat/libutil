@@ -34,6 +34,13 @@ namespace util
 		return strsplit(str, std::string(1, delim));
 	}
 
+	std::vector<std::string> strsplit(const std::string &str, const std::regex &delim)
+	{
+		std::vector<std::string> ret{};
+		for (std::sregex_token_iterator iter{str.begin(), str.end(), delim, {-1}}; iter != std::sregex_token_iterator{}; iter++) ret.push_back(iter->str());
+		return ret;
+	}
+
 	std::string strjoin(const std::vector<std::string> &list, char delim, unsigned int start, unsigned int end)
 	{
 		if (! list.size()) return "";

@@ -47,6 +47,8 @@ namespace util
 
 	std::vector<std::string> strsplit(const std::string &str, char delim);
 
+	std::vector<std::string> strsplit(const std::string &str, const std::regex &delim);
+
 	std::vector<std::string> argvec(int argc, char **argv);
 
 	std::pair<std::unordered_map<std::string, std::vector<std::string>>, std::vector<std::string>> argmap(unsigned int argc, char **argv, const std::string &valid = "", bool stop = false);
