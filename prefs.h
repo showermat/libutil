@@ -153,4 +153,3 @@ template <> void prefs::pref<std::string>::write(std::ostream &out) const
 }
 
 #endif
-

@@ -722,4 +722,3 @@ namespace util
 		return std::make_pair(ret, out);
 	}
 }
-

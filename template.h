@@ -14,4 +14,3 @@ namespace templ
 }
 
 #endif
-

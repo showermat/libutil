@@ -1,4 +1,4 @@
-﻿#ifndef UTIL_MIME_H
+#ifndef UTIL_MIME_H
 #define UTIL_MIME_H
 #include <map>
 #include <string>
@@ -64,4 +64,3 @@ const std::map<std::string, std::string> mime_types{
 };
 
 #endif
-

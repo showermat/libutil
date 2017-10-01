@@ -6,4 +6,3 @@ Building the library should require only:
 
     cmake .
     make
-

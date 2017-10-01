@@ -29,4 +29,3 @@ cat << ! >> "$code"
 return data.at(name); 
 } }
 !
-

@@ -185,4 +185,3 @@ namespace lua
 }
 
 #endif
-

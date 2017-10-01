@@ -68,4 +68,3 @@ namespace templ
 		return ret.str();
 	}
 }
-

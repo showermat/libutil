@@ -102,4 +102,3 @@ namespace lua
 		return iter{*this};
 	}
 }
-

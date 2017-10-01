@@ -260,4 +260,3 @@ const std::map<std::string, std::string> htmlent{
 };
 
 #endif
-
