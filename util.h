@@ -82,6 +82,7 @@ namespace util
 	{
 		std::stringstream ret{};
 		ret << t;
+		if (! ret) throw std::runtime_error{"Failed to convert " + std::string{typeid(T).name()} + " to string"};
 		return ret.str();
 	}
 
@@ -91,6 +92,7 @@ namespace util
 		ss << s;
 		T ret;
 		ss >> ret;
+		if (! ss) throw std::runtime_error{"Failed to convert \"" + s + "\" to " + typeid(T).name()};
 		return ret;
 	}
 

@@ -55,7 +55,7 @@ namespace lua
 		virtual ~fnwrap_base() { }
 	};
 
-	template<typename Ret, typename... Args> class fnwrap : public fnwrap_base
+	template <typename Ret, typename... Args> class fnwrap : public fnwrap_base
 	{
 	private:
 		std::function<Ret(Args...)> func_;
@@ -121,7 +121,7 @@ namespace lua
 		template <typename... Args> iter calltbl(const std::string &func, Args... args); // FIXME
 		template <typename Ret, typename... Args> void expose(std::function<Ret(Args...)> func, const std::string &name)
 		{
-			 funcs.emplace(name, std::unique_ptr<fnwrap_base>{new fnwrap<Ret, Args...>{state, func, name}});
+			funcs.emplace(name, std::unique_ptr<fnwrap_base>{new fnwrap<Ret, Args...>{state, func, name}});
 		}
 		bool exists(const std::string &name);
 		template <typename T> T getvar(const std::string &name)

@@ -246,10 +246,11 @@ namespace util
 	{
 		std::ifstream in{src};
 		if (! in) throw std::runtime_error{"Couldn't open " + src + " for reading"};
+		in.exceptions(std::ios_base::badbit);
 		std::ofstream out{dest};
 		if (! out) throw std::runtime_error{"Couldn't open " + dest + " for writing"};
+		out.exceptions(std::ios_base::badbit);
 		out << in.rdbuf();
-		if (! out) throw std::runtime_error{"Copy failed"};
 	}
 
 	std::string exepath()
@@ -675,7 +676,7 @@ namespace util
 
 	int system(const std::string &bin, const std::vector<std::string> &args)
 	{
-		std::vector<const char *>cargs{};
+		std::vector<const char *> cargs{};
 		cargs.push_back(bin.c_str());
 		for (const std::string &arg : args) cargs.push_back(arg.c_str());
 		cargs.push_back(0);

@@ -26,6 +26,6 @@ for file in "$@"
 done
 cat << ! >> "$code"
 };
-return data.at(name); 
+return data.at(name);
 } }
 !
