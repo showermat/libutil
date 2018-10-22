@@ -146,7 +146,7 @@ namespace util
 		std::stringstream ret{};
 		std::string buf(256, '\0');
 		size_t nin = in.size(), nout = buf.size();
-		char *inaddr = const_cast<char *>(&in[0]); // TODO Valid use?
+		char *inaddr = const_cast<char *>(&in[0]); // I think iconv is supposed to take a `char * const *` rather than `char **` as its input....
 		char *outaddr = &buf[0];
 		while (nin > 0)
 		{
@@ -191,6 +191,25 @@ namespace util
 		return convert.to_bytes(ss.str());
 	}
 
+	std::string utf8upper(const std::string &str)
+	{
+		std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> convert{"�", L"�"};
+		std::basic_ostringstream<wchar_t> ss{};
+		for (const wchar_t &c : convert.from_bytes(str)) ss << std::toupper(c, std::locale{ucslocale});
+		return convert.to_bytes(ss.str());
+	}
+
+	std::string codepoint2utf8(char32_t codepoint)
+	{
+		setlocale(LC_ALL, ucslocale.c_str()); // FIXME Not thread-safe
+		std::mbstate_t state{};
+		std::string ret(MB_CUR_MAX, '\0');
+		int size = std::c32rtomb(&ret[0], codepoint, &state);
+		if (size < 0) throw std::runtime_error{"Could not convert invalid code point " + t2s(codepoint) + " to UTF-8"};
+		ret.resize(size);
+		return ret;
+	}
+
 	template <> bool s2t<bool>(const std::string &s)
 	{
 		if (! s.size()) return false;
@@ -198,10 +217,13 @@ namespace util
 		return false;
 	}
 
-	std::string basename(std::string path, char sep) // TODO Rewrite
+	std::string basename(std::string path, char sep)
 	{
-		while (path.back() == sep) path = path.substr(0, path.size() - 1);
-		return path.substr(path.rfind(sep) + 1);
+		while (path.back() == sep) path.pop_back();
+		if (path == "/") return path;
+		std::string::size_type start = path.rfind(sep);
+		if (start == std::string::npos) return path;
+		return path.substr(start + 1);
 	}
 
 	std::string dirname(std::string path)
@@ -222,7 +244,7 @@ namespace util
 		if (fail) throw std::runtime_error{"Could not rmdir " + path + ": " + std::string{::strerror(errno)}};
 	}
 
-	bool rm_pred(const std::string &path, const struct stat *st, void *arg) // FIXME Need to add DEPTH option to fswalk
+	bool rm_pred(const std::string &path, const struct stat *st, void *arg)
 	{
 		rm(path);
 		return true;
@@ -326,7 +348,7 @@ namespace util
 		if ((sb.st_mode & S_IFMT) == S_IFDIR)
 		{
 			DIR *d = ::opendir(path.c_str());
-			if (!d ) return; // TODO
+			if (! d) return; // TODO
 			struct dirent *child;
 			while ((child = ::readdir(d)))
 			{
@@ -354,7 +376,7 @@ namespace util
 	std::string realpath(const std::string &path)
 	{
 		char *cret = ::realpath(path.c_str(), nullptr);
-		if (! cret) return ""; // FIXME Error handling for incorrect input
+		if (! cret) throw std::runtime_error{"Could not determine real path of " + path + ": " + std::string{::strerror(errno)}};
 		std::string ret{cret};
 		::free(cret);
 		return ret;
@@ -510,7 +532,7 @@ namespace util
 			{
 				int c;
 				std::stringstream buf{};
-				buf << str.substr(i + 1, 2); // TODO Error checking
+				buf << str.substr(i + 1, 2);
 				buf >> std::hex >> c;
 				ret << (char) c;
 				i += 2;
@@ -572,7 +594,7 @@ namespace util
 		return ret;
 	}
 
-	std::string from_htmlent(const std::string &str) // TODO Support numeric Unicode entities as well
+	std::string from_htmlent(const std::string &str)
 	{
 		std::ostringstream ret{}, curent{};
 		bool entproc = false;
@@ -581,8 +603,11 @@ namespace util
 		{
 			if (entproc && *iter == ';')
 			{
-				if (htmlent.count(curent.str())) ret << htmlent.at(curent.str());
-				else ret << '&' << curent.str() << ';';
+				std::string curstr = curent.str();
+				if (htmlent.count(curstr)) ret << htmlent.at(curstr);
+				else if (curstr.size() > 2 && curstr.substr(0, 2) == "#x") ret << codepoint2utf8(std::stol(curstr.substr(2), 0, 16));
+				else if (curstr.size() > 1 && curstr[0] == '#') ret << codepoint2utf8(s2t<long>(curstr.substr(1)));
+				else ret << '&' << curstr << ';';
 				entproc = false;
 				curent.str("");
 				curent.clear();
@@ -593,7 +618,7 @@ namespace util
 				curent.str("");
 				curent.clear();
 			}
-			else if (entproc && (*iter < 65 || *iter > 122 || (*iter < 97 && *iter > 90)))
+			else if (entproc && (*iter < 32 || *iter > 126))
 			{
 				ret << '&' << curent.str() << *iter;
 				entproc = false;
@@ -707,7 +732,8 @@ namespace util
 			execvp(bin.c_str(), (char **) &cargs[0]);
 		}
 		close(infd[0]); close(outfd[1]);
-		if (write(infd[1], &in[0], in.size()) != (int) in.size()) throw std::runtime_error{"Failed to write all input"}; // FIXME Call write multiple times
+		std::size_t cnt = 0;
+		while (cnt < in.size()) cnt += write(infd[1], &in[cnt], in.size() - cnt);
 		close(infd[1]);
 		int ret; wait(&ret);
 		std::string out, buf;

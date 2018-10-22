@@ -10,6 +10,7 @@
 #include <ctime>
 #include <streambuf>
 #include <string_view>
+#include <mutex>
 #include <algorithm>
 #include <functional>
 #include <regex>
@@ -18,6 +19,7 @@
 #include <iomanip>
 #include <locale>
 #include <codecvt>
+#include <cuchar>
 #include <string.h>
 #include <glob.h>
 #include <errno.h>
@@ -33,7 +35,6 @@
 #include <fcntl.h>
 #include <cstdlib>
 #include <sys/wait.h>
-#include <iostream> // TODO Debug remove
 
 namespace util
 {
@@ -56,6 +57,10 @@ namespace util
 	std::string alnumonly(const std::string &str);
 
 	std::string utf8lower(const std::string &str);
+
+	std::string utf8upper(const std::string &str);
+
+	std::string codepoint2utf8(char32_t codepoint);
 
 	int fast_atoi(const char *s);
 
@@ -89,10 +94,11 @@ namespace util
 	template <typename T> T s2t(const std::string &s)
 	{
 		std::stringstream ss{};
+		char c;
 		ss << s;
 		T ret;
 		ss >> ret;
-		if (! ss) throw std::runtime_error{"Failed to convert \"" + s + "\" to " + typeid(T).name()};
+		if (! ss || ss.get(c)) throw std::runtime_error{"Failed to convert \"" + s + "\" to " + typeid(T).name()};
 		return ret;
 	}
 
@@ -115,9 +121,10 @@ namespace util
 
 	template <typename T> T randint(T min, T max)
 	{
-		static std::default_random_engine dre{std::random_device{}()}; // FIXME Probably not thread-safe
-		std::uniform_int_distribution<T> dist{min, max};
-		return dist(dre);
+		static std::mutex lock{}; // On the premise that locking a mutex is faster than recreating `dre` on every call
+		static std::default_random_engine dre{std::random_device{}()};
+		std::lock_guard<std::mutex> guard{lock};
+		return std::uniform_int_distribution<T>{min, max}(dre);
 	}
 
 
