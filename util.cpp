@@ -543,6 +543,16 @@ namespace util
 		return ret.str();
 	}
 
+	std::string mkquerystr(const std::unordered_map<std::string, std::string> &params)
+	{
+		if (params.size() == 0) return "";
+		std::ostringstream ret{};
+		int cnt = 0;
+		for (const std::pair<const std::string, std::string> &param : params)
+			ret << (cnt++ == 0 ? "?" : "&") << urlencode(param.first) << "=" << urlencode(param.second);
+		return ret.str();
+	}
+
 	rangebuf::rangebuf(std::istream &src, std::streampos start, std::streampos size): src_{src}, buf_(blocksize), start_{start}, size_{size}, pos_{0}
 	{
 		setg(&buf_[0], &buf_[0], &buf_[0]);

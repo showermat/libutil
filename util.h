@@ -214,6 +214,8 @@ namespace util
 
 	std::string urldecode(const std::string &str, bool plus = false);
 
+	std::string mkquerystr(const std::unordered_map<std::string, std::string> &params);
+
 	std::string from_htmlent(const std::string &str);
 
 	std::string to_htmlent(const std::string &str);
